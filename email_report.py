@@ -10,9 +10,9 @@ report = json.loads(
     Path("report-to-send.json").read_text(encoding="utf-8")
 )
 
-sender = os.environ["afrahyounus46@gmail.com"]
-password = os.environ["bemyjuyeon046"]
-recipient = os.environ["afrahyounus46@gmail.com"]
+sender = os.environ["SMTP_USERNAME"]
+password = os.environ["SMTP_PASSWORD"]
+recipient = os.environ["REPORT_EMAIL"]
 
 status = report["overall_status"].upper()
 
