@@ -1,5 +1,4 @@
 Flask
 pytest
 pytest-json-report
-requestsgunicorn
 gunicorn
