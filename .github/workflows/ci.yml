@@ -1,9 +1,11 @@
 
-name: DevOps CI Pipeline
+name: DevOps CI/CD Pipeline
 
 on:
   push:
+    branches: [main]
   pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -13,6 +15,9 @@ jobs:
   test:
     name: Automated Tests and Reporting
     runs-on: ubuntu-latest
+
+    outputs:
+      test_status: ${{ steps.result.outputs.status }}
 
     steps:
       - name: Checkout Repository
@@ -40,22 +45,74 @@ jobs:
         if: ${{ !cancelled() }}
         run: python generate_report.py
 
-      - name: Upload Report Artifact
+      - name: Upload JSON Report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: test-report-${{ github.run_id }}
           path: report-to-send.json
-          if-no-files-found: warn
+          if-no-files-found: error
 
       - name: Send Report to Local Receiver
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && github.event_name != 'pull_request' }}
+        continue-on-error: true
         env:
           RECEIVER_URL: ${{ secrets.RECEIVER_URL }}
           REPORT_TOKEN: ${{ secrets.REPORT_TOKEN }}
         run: python send_report.py
 
+      - name: Send Email Report
+        if: ${{ !cancelled() && github.event_name != 'pull_request' }}
+        continue-on-error: true
+        env:
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          REPORT_EMAIL: ${{ secrets.REPORT_EMAIL }}
+        run: python email_report.py
+
+      - name: Determine Test Status
+        id: result
+        if: ${{ !cancelled() }}
+        run: |
+          python -c "import json,os; r=json.load(open('report-to-send.json')); f=open(os.environ['GITHUB_OUTPUT'],'a'); print('status='+r['overall_status'],file=f)"
+
       - name: Verify Test Result
         if: ${{ !cancelled() }}
         run: |
           python -c "import json,sys; r=json.load(open('report-to-send.json')); print('Test status:',r['overall_status']); sys.exit(0 if r['overall_status']=='passed' else 1)"
+
+  deploy:
+    name: Deploy GitHub Pages
+    needs: test
+    if: >-
+      github.event_name != 'pull_request' &&
+      github.ref == 'refs/heads/main' &&
+      needs.test.result == 'success' &&
+      needs.test.outputs.test_status == 'passed'
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
