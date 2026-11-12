@@ -62,13 +62,26 @@ jobs:
         run: python send_report.py
 
       - name: Send Email Report
-        if: ${{ !cancelled() && github.event_name != 'pull_request' }}
-        continue-on-error: true
-        env:
-          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
-          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-          REPORT_EMAIL: ${{ secrets.REPORT_EMAIL }}
-        run: python email_report.py
+        if: always()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 587
+          secure: false
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: "DevOps CI Test Report"
+          to: ${{ secrets.REPORT_EMAIL }}
+          from: ${{ secrets.SMTP_USERNAME }}
+          body: |
+            Automated test execution completed.
+
+            Repository: ${{ github.repository }}
+            Commit: ${{ github.sha }}
+            Run ID: ${{ github.run_id }}
+
+            The detailed JSON test report is attached.
+          attachments: report-to-send.json
 
       - name: Determine Test Status
         id: result
