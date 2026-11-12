@@ -53,9 +53,10 @@ with open("report-to-send.json", "rb") as file:
 
 context = ssl.create_default_context()
 
-with smtplib.SMTP_SSL(
-    "smtp.gmail.com", 465, context=context, timeout=30
-) as server:
+with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as server:
+    server.ehlo()
+    server.starttls(context=ssl.create_default_context())
+    server.ehlo()
     server.login(sender, password)
     server.send_message(message)
 
