@@ -1,0 +1,61 @@
+
+name: DevOps CI Pipeline
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Automated Tests and Reporting
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set Up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Automated Tests
+        id: tests
+        continue-on-error: true
+        run: |
+          python -m pytest tests/test_portal.py -v \
+            --json-report \
+            --json-report-file=pytest-results.json
+
+      - name: Generate JSON Report
+        if: ${{ !cancelled() }}
+        run: python generate_report.py
+
+      - name: Upload Report Artifact
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report-${{ github.run_id }}
+          path: report-to-send.json
+          if-no-files-found: warn
+
+      - name: Send Report to Local Receiver
+        if: ${{ !cancelled() }}
+        env:
+          RECEIVER_URL: ${{ secrets.RECEIVER_URL }}
+          REPORT_TOKEN: ${{ secrets.REPORT_TOKEN }}
+        run: python send_report.py
+
+      - name: Verify Test Result
+        if: ${{ !cancelled() }}
+        run: |
+          python -c "import json,sys; r=json.load(open('report-to-send.json')); print('Test status:',r['overall_status']); sys.exit(0 if r['overall_status']=='passed' else 1)"

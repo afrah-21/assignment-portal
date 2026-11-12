@@ -1,0 +1,186 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Assignment Submission Portal</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #eef2f8;
+            margin: 0;
+            padding: 35px 15px;
+        }
+        .container {
+            max-width: 750px;
+            margin: auto;
+        }
+        h1, h2 { color: #243b60; }
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 3px 12px #00000012;
+        }
+        label {
+            display: block;
+            margin: 12px 0 6px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+        }
+        button {
+            background: #2457a7;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            margin-top: 18px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        button:hover { background: #173d7c; }
+        #message { margin-top: 15px; }
+        .success { color: green; }
+        .error { color: red; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: left;
+            overflow-wrap: anywhere;
+        }
+        th { background: #e6edf8; }
+        .table-wrapper { overflow-x: auto; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Assignment Submission Portal</h1>
+    <p>DevOps for Cloud Computing — CSC418</p>
+
+    <div class="card">
+        <h2>Submit Your Assignment</h2>
+
+        <form id="assignmentForm">
+            <label>Student Name</label>
+            <input id="name" placeholder="Enter your name" required>
+
+            <label>Registration Number</label>
+            <input id="reg_number" placeholder="FA23-BAI-000" required>
+
+            <label>Assignment Title</label>
+            <input id="title" placeholder="DevOps Lab Assignment" required>
+
+            <label>Submission URL</label>
+            <input id="url" type="url"
+                   placeholder="https://github.com/username/repository"
+                   required>
+
+            <button type="submit">Submit Assignment</button>
+        </form>
+
+        <p id="message" role="status"></p>
+    </div>
+
+    <div class="card">
+        <h2>Saved Submissions</h2>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Registration</th>
+                        <th>Title</th>
+                        <th>URL</th>
+                    </tr>
+                </thead>
+                <tbody id="submissionList"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+const form = document.getElementById("assignmentForm");
+const message = document.getElementById("message");
+
+form.addEventListener("submit", async function(event) {
+    event.preventDefault();
+
+    const data = {
+        name: document.getElementById("name").value,
+        reg_number: document.getElementById("reg_number").value,
+        title: document.getElementById("title").value,
+        url: document.getElementById("url").value
+    };
+
+    try {
+        const response = await fetch("/submit", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        message.textContent = result.message;
+        message.className = response.ok ? "success" : "error";
+
+        if (response.ok) {
+            form.reset();
+            loadSubmissions();
+        }
+    } catch (error) {
+        message.textContent = "Could not connect to the server.";
+        message.className = "error";
+    }
+});
+
+async function loadSubmissions() {
+    try {
+        const response = await fetch("/submissions");
+        const submissions = await response.json();
+
+        const tbody = document.getElementById("submissionList");
+        tbody.replaceChildren();
+
+        submissions.forEach(item => {
+            const row = document.createElement("tr");
+
+            [item.name, item.reg_number, item.title].forEach(value => {
+                const cell = document.createElement("td");
+                cell.textContent = value;
+                row.appendChild(cell);
+            });
+
+            const urlCell = document.createElement("td");
+            const link = document.createElement("a");
+            link.href = item.url;
+            link.textContent = "View Submission";
+            link.target = "_blank";
+            link.rel = "noopener noreferrer";
+
+            urlCell.appendChild(link);
+            row.appendChild(urlCell);
+            tbody.appendChild(row);
+        });
+    } catch (error) {
+        message.textContent = "Could not load submissions.";
+        message.className = "error";
+    }
+}
+
+loadSubmissions();
+</script>
+</body>
+</html>
